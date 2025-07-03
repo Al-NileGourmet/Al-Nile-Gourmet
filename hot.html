@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قائمة طعام النيل غورميه - كتاب متقلب الصفحات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables accessible in the script below
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Initialize Firebase
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                window.firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.firebaseApp);
+                window.auth = getAuth(window.firebaseApp);
+
+                // Sign in anonymously or with custom token
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(window.auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(window.auth);
+                }
+
+                // Set userId after authentication
+                onAuthStateChanged(window.auth, (user) => {
+                    if (user) {
+                        window.userId = user.uid;
+                        console.log("Firebase initialized and user signed in:", window.userId);
+                    } else {
+                        window.userId = crypto.randomUUID(); // Fallback for unauthenticated or anonymous
+                        console.log("Firebase initialized, user is anonymous or unauthenticated:", window.userId);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+            }
+        });
+    </script>
+    <style>
+        /* General body styling for background and font */
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #fdfaf6;
+            overflow: hidden; /* Prevent scrollbars during animation */
+            background-image: url('https://i.imgur.com/sCbnK23.jpeg'); /* User provided background image */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative; /* Needed for pseudo-element overlay */
+        }
+        /* Overlay for background image to improve text readability */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(253, 250, 246, 0.7); /* Light overlay with transparency */
+            z-index: -1; /* Ensure it's behind the content but above the background image */
+        }
+        /* Container for the entire book to center it on the screen */
+        .book-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+        }
+        /* Styling for the book itself, defining its size and perspective for 3D flip effect */
+        .book {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            position: relative;
+            perspective: 2500px; /* Stronger perspective for a more pronounced 3D effect */
+        }
+        /* Styling for individual pages within the book */
+        .page {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-style: preserve-3d; /* Allows 3D transformations on children */
+            transition: transform 1s ease-in-out; /* Smooth transition for flipping */
+            transform-origin: left center; /* Pivot point for the flip animation */
+            display: none; /* Hidden by default, controlled by JS */
+        }
+        /* Active page, visible and on top */
+        .page.active {
+            display: block;
+            z-index: 10;
+        }
+        /* Flipped page, rotated 180 degrees and behind the active page */
+        .page.flipped {
+            transform: rotateY(-180deg);
+            z-index: 9; /* Lower z-index so active page appears on top */
+        }
+        /* Front side of each page (only one side used for simplicity) */
+        .page-front {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Hides the back of the element during flip */
+            background-color: #ffffff; /* White background for pages */
+            border-radius: 12px; /* Rounded corners for a softer look */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); /* Subtle shadow for depth */
+            padding: 1.5rem 2rem; /* Inner spacing */
+            overflow-y: auto; /* Allows scrolling for longer content */
+            border: 1px solid #e2dbc4; /* Light border for page separation */
+        }
+        /* Content wrapper inside each page */
+        .page-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem; /* Spacing between categories */
+        }
+        /* Styling for category titles */
+        .category-title {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #8c6a4d; /* Earthy brown color */
+            border-bottom: 2px solid #c8a65e; /* Gold-like underline */
+            padding-bottom: 0.5rem;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        /* Grid layout for each menu item to align name/desc and price */
+        .menu-item {
+            display: grid;
+            grid-template-columns: 1fr auto; /* Name/desc takes full width, price auto */
+            gap: 0.5rem 1rem; /* Spacing between rows and columns */
+            padding-bottom: 1rem;
+            border-bottom: 1px dashed #dcd3b8; /* Dashed separator */
+            align-items: center; /* Vertically center items */
+        }
+        /* Remove border for the last item in a category */
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+        /* Styling for menu item name */
+        .item-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #3d3026; /* Dark brown for text */
+        }
+        /* Styling for menu item price */
+        .item-price {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #a08562; /* Muted gold for prices */
+            text-align: left; /* Align price to the left in RTL for better visual balance */
+        }
+        /* Styling for menu item description - REMOVED DEFAULT DISPLAY */
+        .item-desc {
+            display: none; /* Hidden by default */
+        }
+
+        /* Navigation buttons container */
+        .nav-buttons {
+            position: fixed;
+            bottom: 20px; /* Adjusted to give more clearance from the bottom of the screen */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            z-index: 100; /* Ensures buttons are on top */
+        }
+        /* Styling for navigation buttons */
+        .nav-btn {
+            background-color: #8c6a4d; /* Earthy brown */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s; /* Smooth hover effects */
+        }
+        .nav-btn:hover {
+            background-color: #6b5b4c; /* Darker brown on hover */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        /* Disabled state for navigation buttons */
+        .nav-btn:disabled {
+            background-color: #c8bba9; /* Lighter, muted brown when disabled */
+            cursor: not-allowed;
+            transform: translateY(0); /* No lift when disabled */
+        }
+        /* Page number display - REMOVED */
+        /* Header information block */
+        .header-info {
+            text-align: center;
+            padding: 1rem;
+            background-color: #8c6a4d; /* Background color for the header */
+            color: white; /* Changed text color to white */
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* Center content vertically */
+            min-height: 150px; /* Adjusted height */
+            position: relative; /* For proper positioning of content */
+        }
+        /* Removed .header-content-overlay as it's no longer needed */
+        /* Removed .header-info img specific styles as the image is now a background */
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+            .page-front {
+                padding: 1rem 1.25rem;
+            }
+            .category-title { font-size: 1.4rem; }
+            .item-name, .item-price { font-size: 1rem; }
+            .chef-btn, .lang-btn, .show-desc-btn, .feedback-btn, .contact-icon-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.85rem;
+            }
+            .nav-buttons {
+                flex-wrap: wrap;
+                justify-content: center;
+                bottom: 10px;
+            }
+            .nav-btn {
+                margin: 0.25rem;
+            }
+            .lang-buttons-container {
+                top: 10px;
+                right: 10px;
+                left: unset;
+                transform: unset;
+            }
+            .contact-info-container {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+            .contact-icon-btn {
+                font-size: 1.2rem;
+                padding: 0.4rem;
+            }
+        }
+        /* Custom style for the Grill pricing header */
+        .grill-price-header {
+            text-align: left; /* Align to the left to match price alignment */
+            font-size: 0.9rem;
+            color: #6b5b4c;
+            margin-bottom: 0.5rem;
+            padding-left: 1rem; /* Adjust padding to align with prices */
+            grid-column: 2 / 3; /* Position header in the price column */
+        }
+        /* New styles for Grill item prices */
+        .item-prices-container {
+            display: flex;
+            flex-direction: column; /* Stack prices vertically */
+            align-items: flex-start; /* Align prices to the left */
+            gap: 0.2rem; /* Small gap between price lines */
+            grid-column: 2 / 3; /* Ensure it's in the price column */
+        }
+        .item-price-line {
+            display: flex;
+            gap: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #a08562;
+        }
+        .price-label {
+            font-weight: normal; /* Make label less bold than price */
+            color: #6b5b4c; /* Slightly muted color for label */
+            font-size: 0.95rem; /* Smaller font size for label */
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 200; /* Above everything else */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4); /* Semi-transparent black background */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px); /* Blurred background */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            max-width: 90%;
+            width: 450px;
+            text-align: center;
+            position: relative;
+            animation: fadeInScale 0.3s ease-out; /* Simple animation */
+        }
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #333;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #8c6a4d;
+            margin-bottom: 1rem;
+        }
+        .modal-text {
+            font-size: 1.1rem;
+            color: #3d3026;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        .modal-loading {
+            font-size: 1.2rem;
+            color: #a08562;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Chef's Consultation Modal Specific Styles */
+        .chef-input {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dcd3b8;
+            border-radius: 8px;
+            font-size: 1rem;
+            color: #3d3026;
+            text-align: right; /* For RTL */
+        }
+        .chef-response {
+            max-height: 200px; /* Limit height for scrollability */
+            overflow-y: auto;
+            text-align: right; /* For RTL */
+            background-color: #fdfaf6;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e2dbc4;
+            min-height: 80px; /* Ensure some height for content */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3d3026;
+            line-height: 1.5;
+            margin-top: 1rem;
+        }
+        .chef-btn {
+            background-color: #c8a65e; /* Gold-like color */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .chef-btn:hover {
+            background-color: #a08562; /* Darker gold on hover */
+            transform: translateY(-2px);
+        }
+        .chef-btn:disabled {
+            background-color: #e2dbc4;
+            cursor: not-allowed;
+            transform: translateY(0);
+        }
+        /* Language buttons styling */
+        .lang-buttons-container {
+            position: fixed;
+            top: 20px; /* Positioned at the top */
+            right: 20px; /* Positioned at the right */
+            display: flex;
+            gap: 0.5rem;
+            z-index: 100;
+        }
+        .lang-btn {
+            background-color: #a08562; /* Muted gold for language buttons */
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .lang-btn:hover {
+            background-color: #8c6a4d; /* Darker on hover */
+            transform: translateY(-1px);
+        }
+        .lang-btn.active-lang {
+            background-color: #6b5b4c; /* Even darker for active language */
+            font-weight: bold;
+        }
+
+        /* Show Description Button */
+        .show-desc-btn {
+            background-color: #c8a65e;
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            margin-top: 0.5rem; /* Space below item name */
+            grid-column: 1 / -1; /* Span full width below name/desc */
+            justify-self: flex-start; /* Align to start */
+            width: fit-content;
+        }
+        .show-desc-btn:hover {
+            background-color: #a08562;
+            transform: translateY(-1px);
+        }
+
+        /* Feedback Button */
+        .feedback-btn {
+            background-color: #5a8d70; /* Greenish color for feedback */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            margin-top: 1rem; /* Space from other buttons */
+        }
+        .feedback-btn:hover {
+            background-color: #4a7a60;
+            transform: translateY(-2px);
+        }
+
+        /* Feedback Modal Specific Styles */
+        .rating-stars {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            direction: ltr; /* Force LTR for stars */
+        }
+        .rating-stars input[type="radio"] {
+            display: none;
+        }
+        .rating-stars label {
+            font-size: 2rem;
+            color: #ccc;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .rating-stars label:hover,
+        .rating-stars label:hover ~ label,
+        .rating-stars input[type="radio"]:checked ~ label {
+            color: #ffc107; /* Gold star color */
+        }
+        .feedback-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dcd3b8;
+            border-radius: 8px;
+            font-size: 1rem;
+            color: #3d3026;
+            text-align: right; /* For RTL */
+        }
+        .feedback-submit-btn {
+            background-color: #8c6a4d;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .feedback-submit-btn:hover {
+            background-color: #6b5b4c;
+            transform: translateY(-2px);
+        }
+
+        /* View Feedback Modal */
+        .feedback-list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e2dbc4;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            text-align: right;
+        }
+        .feedback-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px dashed #dcd3b8;
+        }
+        .feedback-item:last-child {
+            border-bottom: none;
+        }
+        .feedback-item p {
+            margin-bottom: 0.25rem;
+            color: #3d3026;
+        }
+        .feedback-item .rating {
+            color: #a08562;
+            font-weight: bold;
+        }
+        .feedback-item .comment {
+            font-size: 0.95rem;
+            color: #6b5b4c;
+        }
+        .feedback-item .timestamp {
+            font-size: 0.8rem;
+            color: #999;
+            text-align: left; /* For timestamp in RTL */
+        }
+        .view-feedback-btn { /* Style for the button to view feedback */
+            background-color: #5a8d70;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            margin-top: 1rem;
+        }
+        .view-feedback-btn:hover {
+            background-color: #4a7a60;
+            transform: translateY(-2px);
+        }
+
+        /* Contact Info Container */
+        .contact-info-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+        }
+        .contact-icon-btn {
+            background-color: #c8a65e; /* Gold-like color */
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .contact-icon-btn:hover {
+            background-color: #a08562;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="book-container">
+        <div class="book" id="book">
+            <!-- Pages will be dynamically generated here by JavaScript -->
+        </div>
+    </div>
+
+    <div class="nav-buttons">
+        <button id="prev-btn" class="nav-btn"></button>
+        <button id="recommend-btn" class="nav-btn"></button>
+        <button id="ask-chef-btn" class="nav-btn"></button>
+        <button id="next-btn" class="nav-btn"></button>
+        <button id="feedback-btn" class="feedback-btn"></button>
+        <button id="view-feedback-btn" class="view-feedback-btn"></button> <!-- Button to view feedback -->
+    </div>
+
+    <div class="lang-buttons-container">
+        <button id="lang-ar-btn" class="lang-btn" data-lang="ar"></button>
+        <button id="lang-en-btn" class="lang-btn" data-lang="en"></button>
+    </div>
+
+    <!-- Modal for LLM Recommendation -->
+    <div id="recommendationModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeRecommendationModal">&times;</span>
+            <h3 class="modal-title" id="modalTitle"></h3>
+            <p class="modal-loading" id="modalLoading"></p>
+            <p class="modal-text" id="modalDishName"></p>
+            <p class="modal-text" id="modalDescription"></p>
+        </div>
+    </div>
+
+    <!-- New Modal for Ask the Chef -->
+    <div id="askChefModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeAskChefModal">&times;</span>
+            <h3 class="modal-title"></h3>
+            <textarea id="chefQuestionInput" class="chef-input" rows="4"></textarea>
+            <button id="submitChefQuestionBtn" class="chef-btn"></button>
+            <p class="modal-loading hidden" id="chefLoading"></p>
+            <div class="chef-response" id="chefResponse">
+                <!-- Chef's response will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Item Description -->
+    <div id="descriptionModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeDescriptionModal">&times;</span>
+            <h3 class="modal-title" id="descriptionModalTitle"></h3>
+            <p class="modal-loading hidden" id="descriptionLoading"></p>
+            <p class="modal-text" id="descriptionModalText"></p>
+        </div>
+    </div>
+
+    <!-- Modal for Feedback Submission -->
+    <div id="feedbackModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeFeedbackModal">&times;</span>
+            <h3 class="modal-title" id="feedbackModalTitle"></h3>
+            <input type="text" id="customerNameInput" class="chef-input" placeholder="">
+            <div class="rating-stars">
+                <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
+                <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+                <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+                <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+                <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+            </div>
+            <textarea id="feedbackCommentInput" class="feedback-textarea" rows="4" placeholder=""></textarea>
+            <button id="submitFeedbackBtn" class="feedback-submit-btn"></button>
+            <p class="modal-loading hidden" id="feedbackMessage"></p>
+        </div>
+    </div>
+
+    <!-- Modal for Viewing Feedback -->
+    <div id="viewFeedbackModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeViewFeedbackModal">&times;</span>
+            <h3 class="modal-title" id="viewFeedbackModalTitle"></h3>
+            <p class="modal-loading hidden" id="viewFeedbackLoading"></p>
+            <div class="feedback-list-container" id="feedbackList">
+                <!-- Feedback items will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const book = document.getElementById('book');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const recommendBtn = document.getElementById('recommend-btn');
+            const askChefBtn = document.getElementById('ask-chef-btn');
+            const langArBtn = document.getElementById('lang-ar-btn');
+            const langEnBtn = document.getElementById('lang-en-btn');
+            const feedbackBtn = document.getElementById('feedback-btn');
+            const viewFeedbackBtn = document.getElementById('view-feedback-btn'); // New button
+
+            // Recommendation Modal Elements
+            const recommendationModal = document.getElementById('recommendationModal');
+            const closeRecommendationModal = document.getElementById('closeRecommendationModal');
+            const modalLoading = document.getElementById('modalLoading');
+            const modalDishName = document.getElementById('modalDishName');
+            const modalDescription = document.getElementById('modalDescription');
+            const modalTitle = document.getElementById('modalTitle');
+
+            // Ask the Chef Modal Elements
+            const askChefModal = document.getElementById('askChefModal');
+            const closeAskChefModal = document.getElementById('closeAskChefModal');
+            const chefQuestionInput = document.getElementById('chefQuestionInput');
+            const submitChefQuestionBtn = document.getElementById('submitChefQuestionBtn');
+            const chefLoading = document.getElementById('chefLoading');
+            const chefResponse = document.getElementById('chefResponse');
+            const askChefModalTitle = askChefModal.querySelector('.modal-title');
+
+            // Description Modal Elements
+            const descriptionModal = document.getElementById('descriptionModal');
+            const closeDescriptionModal = document.getElementById('closeDescriptionModal');
+            const descriptionModalTitle = document.getElementById('descriptionModalTitle');
+            const descriptionLoading = document.getElementById('descriptionLoading');
+            const descriptionModalText = document.getElementById('descriptionModalText');
+
+            // Feedback Modal Elements
+            const feedbackModal = document.getElementById('feedbackModal');
+            const closeFeedbackModal = document.getElementById('closeFeedbackModal');
+            const feedbackModalTitle = document.getElementById('feedbackModalTitle');
+            const customerNameInput = document.getElementById('customerNameInput');
+            const feedbackCommentInput = document.getElementById('feedbackCommentInput');
+            const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+            const feedbackLoading = document.getElementById('feedbackLoading');
+            const feedbackMessage = document.getElementById('feedbackMessage');
+            const ratingStars = document.querySelectorAll('input[name="rating"]');
+
+            // View Feedback Modal Elements
+            const viewFeedbackModal = document.getElementById('viewFeedbackModal');
+            const closeViewFeedbackModal = document.getElementById('closeViewFeedbackModal');
+            const viewFeedbackModalTitle = document.getElementById('viewFeedbackModalTitle');
+            const viewFeedbackLoading = document.getElementById('viewFeedbackLoading');
+            const feedbackList = document.getElementById('feedbackList');
+
+
+            let currentPageIndex = 0;
+            let currentLanguage = 'ar'; // Default language
+
+            // Centralized Menu Data with Arabic and English translations
+            const allMenuData = {
+                "ar": {
+                    "header": {
+                        "title": "النيل غورميه",
+                        "slogan": "مع النيل غورمية هتدوق طعم #مصر",
+                        "contact": "لطلب الاوردرات او الاستفسارات : 0554099255",
+                        "address": "البرشا جنوب 3 أرجان, بناية روز بالاس - محل رقم 15",
+                        "logoAlt": "شعار النيل غورميه",
+                        "logoUrl": "https://i.imgur.com/AcEld19.jpeg", // This URL is no longer used for display
+                        "whatsappNumber": "971584099255", // Updated with country code
+                        "phoneNumber": "+971584099255", // Updated with country code
+                        "email": "gourmetnile@gmail.com",
+                        "websiteLink": "https://g.co/kgs/rL7jf96",
+                        "instagramLink": "https://www.instagram.com/nilegourmet.ae/",
+                        "facebookLink": "https://www.facebook.com/alnilegourmet/" // Updated Facebook link
+                    },
+                    "nav": {
+                        "prev": "السابق",
+                        "next": "التالي",
+                        "recommend": "✨ اقتراح طبق ✨",
+                        "askChef": "اسأل الشيف ✨",
+                        "langAr": "العربية",
+                        "langEn": "English",
+                        "feedback": "تقييم",
+                        "viewFeedback": "عرض التقييمات"
+                    },
+                    "modals": {
+                        "recommendation": {
+                            "title": "اقتراح طبق لك",
+                            "loading": "جارٍ التفكير في طبق لذيذ لك...",
+                        },
+                        "askChef": {
+                            "title": "اسأل الشيف",
+                            "placeholder": "ما هو سؤالك للشيف؟ (مثال: ما هو الطبق الأكثر شعبية؟ هل لديكم أطباق نباتية؟)",
+                            "button": "اسأل ✨",
+                            "loading": "الشيف يفكر في إجابتك...",
+                        },
+                        "description": {
+                            "loading": "جارٍ إنشاء الوصف...",
+                        },
+                        "feedback": {
+                            "title": "تقييمك يهمنا",
+                            "namePlaceholder": "اسمك (اختياري)",
+                            "commentPlaceholder": "اكتب تعليقك هنا...",
+                            "button": "إرسال التقييم",
+                            "loading": "جارٍ إرسال تقييمك...",
+                            "success": "شكراً لتقييمك! تم إرسال تقييمك بنجاح.",
+                        },
+                        "viewFeedback": {
+                            "title": "تقييمات العملاء",
+                            "loading": "جارٍ تحميل التقييمات...",
+                            "noFeedback": "لا توجد تقييمات حتى الآن.",
+                        }
+                    },
+                    "pages": [
+                        {
+                            "categories": [
+                                {
+                                    "title": "الشوربة | Soups",
+                                    "items": [
+                                        {"name": "شوربة عدس", "description": "حساء عدس دافئ غني بالتوابل الشرقية", "price": "15 AED"},
+                                        {"name": "شوربة لسان عصفور", "description": "حساء لسان العصفور مع الخضار والتوابل", "price": "15 AED"},
+                                        {"name": "شوربة كوارع", "description": "شوربة كوارع غنية ولذيذة تقدم بالطريقة المصرية التقليدية", "price": "30 AED"}
+                                    ]
+                                },
+                                {
+                                    "title": "السلطات | Salads",
+                                    "items": [
+                                        {"name": "سلطة بلدي", "description": "سلطة خضراء مصرية طازجة مع طماطم وخيار وبقدونس", "price": "15 AED"},
+                                        {"name": "تبولة", "description": "سلطة برغل مع بقدونس وطماطم ونعناع وليمون", "price": "20 AED"},
+                                        {"name": "حمص", "description": "حمص مهروس مع طحينة ولمسة زيت زيتون وليمون", "price": "20 AED"},
+                                        {"name": "بابا غنوج", "description": "باذنجان مشوي مهروس مع طحينة وثوم وليمون", "price": "20 AED"},
+                                        {"name": "طحينة", "description": "صلصة الطحينة الكلاسيكية بنكهة الليمون والثوم", "price": "18 AED"},
+                                        {"name": "تومية", "description": "صلصة ثومية مصرية كريمية بنكهة الثوم القوية", "price": "18 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "مقبلات ساخنة | Hot Appetizers",
+                                    "items": [
+                                        {"name": "سجق إسكندراني", "description": "سجق بلدي مطهو مع فلفل وطماطم وتوابل إسكندراني", "price": "40 AED"},
+                                        {"name": "كبدة إسكندراني", "description": "شرائح كبدة مع بصل وفلفل وتوابل إسكندرانية", "price": "35 AED"},
+                                        {"name": "1/4 فراخ محمرة", "description": "ربع دجاجة مقلية ذهبية ومقرمشة", "price": "15 AED"},
+                                        {"name": "بطاطس مقلية", "description": "بطاطس مقلية ذهبية مقرمشة", "price": "15 AED"}
+                                    ]
+                                },
+                                {
+                                    "title": "المحاشي | Stuffed Vegetables",
+                                    "items": [
+                                        {"name": "ممبار", "description": "أمعاء محشوة بالأرز والتوابل ومطهية حتى النضج", "price": "40 AED"},
+                                        {"name": "ورق عنب", "description": "أوراق عنب محشوة بالأرز والخضار والأعشاب", "price": "30 AED"},
+                                        {"name": "محشي كرنب", "description": "أوراق كرنب محشوة بالأرز واللحم المفروم والتوابل", "price": "30 AED"},
+                                        {"name": "محاشي مشكلة", "description": "تشكيلة من الخضار المحشية بالأرز والتوابل، تقدم مع صلصة الطماطم العطرية", "price": "40 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "اطباق النيل المميزة",
+                                    "items": [
+                                        {"name": "مكرونة بشاميل", "description": "معكرونة بالباشاميل مع طبقات من اللحم المفروم وصلصة البشاميل الكريمية", "price": "35 AED"},
+                                        {"name": "معكرونة بالسجق الشرقي", "description": "معكرونة ممزوجة بالسجق الشرقي الحار وصلصة الطماطم العطرية", "price": "35 AED"},
+                                        {"name": "رقاق باللحم المفروم", "description": "رقاق مقرمش محشو باللحم المفروم المتبل ومخبوز", "price": "30 AED"},
+                                        {"name": "إسكالوب دجاج", "description": "شرائح دجاج طرية مغطاة بالبقسماط ومقلية حتى تصبح ذهبية", "price": "40 AED"},
+                                        {"name": "فتة بمكعبات لحم بقري", "description": "فتة أرز وعيش محمص مع مكعبات لحم بقري وصوص زبادي وثوم", "price": "55 AED"},
+                                        {"name": "فتة موزة ضاني", "description": "أرز وعيش مع موزة ضاني مطهوة ببطء، مغطاة بصلصة الزبادي والثوم", "price": "60 AED"},
+                                        {"name": "فتة مع كوارع", "description": "فتة أرز وعيش مع شوربة كوارع لذيذة مغطاة بصلصة الزبادي والثوم", "price": "55 AED"},
+                                        {"name": "دجاجة كاملة محشوة بالأرز", "description": "دجاجة كاملة محشوة بالأرز المتبل والمكسرات، مخبوزة", "price": "50 AED"},
+                                        {"name": "حمام محشو بالأرز", "description": "حمام محشو بالأرز المصري المتبل والمطهو حتى النضج", "price": "60/110 AED"},
+                                        {"name": "حمام محشو بالفريك", "description": "حمام محشو بحبوب الفريك المتبلة بالأعشاب، مطهو حتى يصبح طرياً", "price": "65/115 AED"},
+                                        {"name": "نصف بطة مع محاشي", "description": "نصف بطة محمرة تقدم مع أصناف المحاشي المتنوعة", "price": "110 AED"},
+                                        {"name": "نصف بطة مشوية بالفرن", "description": "نصف بطة مشوية في الفرن مع أرز شرقي معطر بالتوابل", "price": "100 AED"},
+                                        {"name": "كتف ضاني بالفرن", "description": "كتف ضاني مطهو ببطء في الفرن مع أعشاب وتوابل شرقية", "price": "200 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "مشاوي النيل | Grills Al-Nile",
+                                    "headerNote": "طلب | نص كيلو | كيلو",
+                                    "items": [
+                                        {"name": "كباب", "description": "لحم كباب مشوي متبل بالأعشاب والتوابل الشرقية", "price": "59/88/175 AED"},
+                                        {"name": "كفتة", "description": "كفتة لحم مشوية على الفحم مع بهارات خاصة", "price": "55/80/160 AED"},
+                                        {"name": "ريش ضاني مشوية", "description": "ريش ضاني طرية مشوية بعناية حتى تصبح ذهبية", "price": "60/80/180 AED"},
+                                        {"name": "طرب", "description": "مزيج لحم مفروم مشوي ملفوف بالدهن، بنكهة فريدة", "price": "55/85/165 AED"},
+                                        {"name": "شيش طاووق", "description": "شيش طاووق دجاج متبل ومشوي على الفحم", "price": "45/60/125 AED"},
+                                        {"name": "كبدة مشوية", "description": "شرائح كبدة مشوية مع أعشاب وتوابل شرقية", "price": "40 AED"},
+                                        {"name": "سجق مشوي", "description": "سجق مصري مشوي على الفحم مع نكهة مدخنة", "price": "45 AED"},
+                                        {"name": "حواوشي", "description": "رغيف خبز محشو باللحم المفروم المتبل ومشوي", "price": "22 AED"},
+                                        {"name": "صدور دجاج مشوية", "description": "صدور دجاج مشوية متبلة بالأعشاب تقدم طرية وصحية", "price": "40 AED"},
+                                        {"name": "موزة مشوية", "description": "موزة ضاني مشوية على الفحم مع تتبيلة شرقية", "price": "60 AED"},
+                                        {"name": "نصف فرخة مشوية", "description": "نصف فرخة مشوية على الفحم مع تتبيلة شرقية", "price": "35 AED"},
+                                        {"name": "مشاوي مشكلة نايل جورميه", "description": "تشكيلة من المشاوي المصرية كباب، كفتة، شيش طاووق، ريش، وسجق", "price": "90/175 AED"},
+                                        {"name": "مشاوي مشكلة لحوم", "description": "تشكيلة مشاوي لحوم متنوعة تضم كباب، كفتة، ريش وطرب", "price": "90/180 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "طواجن و خضار | Vegetables and Tagens",
+                                    "items": [
+                                        {"name": "ملوخية سادة", "description": "حساء ملوخية مصري كلاسيكي يقدم ساخناً", "price": "38 AED"},
+                                        {"name": "ملوخية بالدجاج", "description": "ملوخية مطبوخة مع قطع دجاج طرية", "price": "49 AED"},
+                                        {"name": "ملوخية باللحم", "description": "ملوخية غنية مع مكعبات لحم مقلية ومذاق أصيل", "price": "54 AED"},
+                                        {"name": "طاجن مسقعة باللحم المفروم", "description": "طاجن مسقعة باللحم المفروم والبطاطس والباذنجان", "price": "40 AED"},
+                                        {"name": "طاجن مسقعة بالبشاميل", "description": "طاجن مسقعة بالبشاميل الكريمي مع باذنجان ولحم مفروم", "price": "45 AED"},
+                                        {"name": "طاجن بطاطس بالدجاج", "description": "طاجن بطاطس مع قطع دجاج متبلة ومخبوزة", "price": "45 AED"},
+                                        {"name": "طاجن بطاطس باللحم", "description": "طاجن بطاطس مع لحم بقري مطهو ببطء في صلصة طماطم", "price": "45 AED"},
+                                        {"name": "ورقة لحمة", "description": "شرائح لحم بقري مطهوة في الفرن مع الخضروات والتوابل", "price": "50 AED"},
+                                        {"name": "طاجن بامية باللحم", "description": "طاجن بامية باللحم، لحم بقري مطهو مع البامية في صلصة غنية", "price": "45 AED"},
+                                        {"name": "طاجن لحم بالبصل", "description": "لحم مطهو ببطء مع بصل متكرمل وتوابل", "price": "45 AED"},
+                                        {"name": "عكاوي بالبصل", "description": "عكاوي مطهوة بالبصل حتى تصبح طرية وغنية بالنكهات", "price": "46 AED"},
+                                        {"name": "ورق عنب بالكوارع", "description": "ورق عنب محشو يقدم مع شوربة كوارع لذيذة", "price": "50 AED"},
+                                        {"name": "طاجن موزة بالبطاطس", "description": "موزة ضاني مطهوة مع البطاطس في طاجن عطري بالبهارات", "price": "65 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "الفطير المصري | The Egyptian Feteer",
+                                    "items": [
+                                        {"name": "فطيرة مشلتت سادة", "description": "فطير مصري تقليدي هش وغني بالطبقات يقدم مع العسل أو الجبن", "price": "69 AED"},
+                                        {"name": "فطيرة مكس جبن", "description": "فطير محشو بمزيج من الجبن المختلفة الذائبة بنكهة شرقية", "price": "49 AED"},
+                                        {"name": "فطيرة مكس لحوم", "description": "فطير محشو بتشكيلة لحوم شهية متبلة ومطهوة", "price": "59 AED"},
+                                        {"name": "فطيرة خضار مشكلة", "description": "فطير محشو بخضروات طازجة متبلة ومخبوزة", "price": "49 AED"},
+                                        {"name": "فطيرة حلو النيل", "description": "فطير حلو معد على طريقة النيل مع عسل وسكر بودرة وقرفة", "price": "55 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "أرز معمر | Muammar Rice",
+                                    "items": [
+                                        {"name": "أرز معمر سادة", "description": "أرز مصري مطبوخ في الفرن مع حليب وسمن", "price": "30 AED"},
+                                        {"name": "أرز معمر باللحم", "description": "أرز بالفرن مع قطع لحم بقري وتوابل شرقية", "price": "45 AED"},
+                                        {"name": "رز معمر بالحمام", "description": "أرز معمر محشو بالحمام طبق مصري فاخر بنكهة غنية", "price": "55 AED"}
+                                    ]
+                                },
+                                {
+                                    "title": "أطباق جانبية | Side Dish",
+                                    "items": [
+                                        {"name": "أرز بالشعيرية", "description": "أرز مصري مطبوخ مع شعيرية ذهبية، طبق جانبي كلاسيكي", "price": "15 AED"},
+                                        {"name": "أرز ابيض", "description": "أرز أبيض مفلفل، خفيف ومثالي مع جميع الأطباق", "price": "15 AED"},
+                                        {"name": "رز بالخلطة", "description": "أرز مصري مطبوخ مع المكسرات والزبيب والتوابل الشرقية", "price": "18 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "الولائم والصواني | Feasts & Trays",
+                                    "items": [
+                                        {"name": "وليمة فخدة ضاني", "description": "فخدة ضاني مع الأرز والمقبلات والسلطات (يطلب قبلها بيوم)", "price": "350 AED"},
+                                        {"name": "وليمة مشاوي الملوك", "description": "تشكيلة كباب، كفتة، شيش، ريش، وسجق مع المقبلات", "price": "500 AED"},
+                                        {"name": "صينية محاشي مع بطة", "description": "صينية محاشي مشكلة مع بطة محمرة وأرز شرقي", "price": "280 AED"},
+                                        {"name": "صينية فتة مع 6 موزات", "description": "صينية فتة مع 6 موزات ضاني مطهوة ببطء مع المقبلات", "price": "360 AED"},
+                                        {"name": "وليمة مكس حمام", "description": "حمام محشو بالأرز والفريك مع أطباق جانبية وسلطات", "price": "500 AED"},
+                                        {"name": "وليمة خروف مع محاشي", "description": "خروف كامل مع محاشي ومقبلات وسلطات (يطلب قبلها بيوم)", "price": "1400 AED"},
+                                        {"name": "وليمة خروف مع أرز بالخلطة", "description": "خروف كامل مع الأرز بالخلطة والمكسرات (يطلب قبلها بيوم)", "price": "1300 AED"},
+                                        {"name": "بطة كاملة مع محاشي", "description": "بطة كاملة محشية مع أصناف محاشي مشكلة وأرز شرقي", "price": "260 AED"},
+                                        {"name": "ديك رومي في الفرن", "description": "ديك رومي كامل مشوي مع أرز ومقبلات (للحفلات)", "price": "360 AED"},
+                                        {"name": "صينية رقاق", "description": "صينية رقاق باللحم المفروم، مخبوزة حتى تصبح ذهبية", "price": "120 AED"},
+                                        {"name": "صينية باشميل", "description": "صينية مكرونة بالباشاميل واللحم المفروم تكفي عدة أشخاص", "price": "150 AED"},
+                                        {"name": "صينية أرز معمر باللحمة", "description": "صينية أرز معمر باللحم البقري مطبوخة في الفرن", "price": "160 AED"}
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "en": {
+                    "header": {
+                        "title": "Nile Gourmet",
+                        "slogan": "Experience the taste of #Egypt with Nile Gourmet",
+                        "contact": "For orders or inquiries: 0554099255",
+                        "address": "Al Barsha South 3 Arjan, Rose Palace Building - Shop No. 15",
+                        "logoAlt": "Nile Gourmet Logo",
+                        "logoUrl": "https://i.imgur.com/AcEld19.jpeg", // This URL is no longer used for display
+                        "whatsappNumber": "971584099255", // Updated with country code
+                        "phoneNumber": "+971584099255", // Updated with country code
+                        "email": "gourmetnile@gmail.com",
+                        "websiteLink": "https://g.co/kgs/rL7jf96",
+                        "instagramLink": "https://www.instagram.com/nilegourmet.ae/",
+                        "facebookLink": "https://www.facebook.com/alnilegourmet/" // Updated Facebook link
+                    },
+                    "nav": {
+                        "prev": "Previous",
+                        "next": "Next",
+                        "recommend": "✨ Suggest a Dish ✨",
+                        "askChef": "Ask the Chef ✨",
+                        "langAr": "العربية",
+                        "langEn": "English",
+                        "feedback": "Feedback",
+                        "viewFeedback": "View Feedback"
+                    },
+                    "modals": {
+                        "recommendation": {
+                            "title": "Dish Suggestion for You",
+                            "loading": "Thinking of a delicious dish for you...",
+                            "error": "Sorry, we couldn't suggest a dish right now. Please try again."
+                        },
+                        "askChef": {
+                            "title": "Ask the Chef",
+                            "placeholder": "What is your question for the chef? (e.g., What is the most popular dish? Do you have vegetarian options?)",
+                            "button": "Ask ✨",
+                            "loading": "The chef is thinking of your answer...",
+                            "error": "Sorry, the chef couldn't answer your question right now. Please try again."
+                        },
+                        "description": {
+                            "loading": "Generating description...",
+                            "error": "Sorry, we couldn't generate a description for this dish. Please try again."
+                        },
+                        "feedback": {
+                            "title": "Your Feedback Matters",
+                            "namePlaceholder": "Your Name (optional)",
+                            "commentPlaceholder": "Write your comments here...",
+                            "button": "Submit Feedback",
+                            "loading": "Submitting your feedback...",
+                            "success": "Thank you for your feedback! Your submission was successful.",
+                            "error": "Sorry, an error occurred while submitting your feedback. Please try again."
+                        },
+                        "viewFeedback": {
+                            "title": "Customer Feedback",
+                            "loading": "Loading feedback...",
+                            "noFeedback": "No feedback submitted yet.",
+                            "error": "Sorry, an error occurred while loading feedback."
+                        }
+                    },
+                    "pages": [
+                        {
+                            "categories": [
+                                {
+                                    "title": "Soups | الشوربة",
+                                    "items": [
+                                        {"name": "Lentil Soup", "description": "Warm lentil soup rich with oriental spices", "price": "15 AED"},
+                                        {"name": "Orzo Soup", "description": "Orzo soup with vegetables and spices", "price": "15 AED"},
+                                        {"name": "Kawareh Soup", "description": "Rich and delicious trotters soup served in the traditional Egyptian way", "price": "30 AED"}
+                                    ]
+                                },
+                                {
+                                    "title": "Salads | السلطات",
+                                    "items": [
+                                        {"name": "Baladi Salad", "description": "Fresh Egyptian green salad with tomatoes, cucumbers, and parsley", "price": "15 AED"},
+                                        {"name": "Tabbouleh", "description": "Bulgur salad with parsley, tomatoes, mint, and lemon", "price": "20 AED"},
+                                        {"name": "Hummus", "description": "Mashed chickpeas with tahini and a touch of olive oil and lemon", "price": "20 AED"},
+                                        {"name": "Baba Ghanoush", "description": "Grilled mashed eggplant with tahini, garlic, and lemon", "price": "20 AED"},
+                                        {"name": "Tahini", "description": "Classic tahini sauce with lemon and garlic flavor", "price": "18 AED"},
+                                        {"name": "Toumieh", "description": "Creamy Egyptian garlic sauce with a strong garlic flavor", "price": "18 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "Hot Appetizers | مقبلات ساخنة",
+                                    "items": [
+                                        {"name": "Alexandrian Sausage", "description": "Local sausage cooked with peppers, tomatoes, and Alexandrian spices", "price": "40 AED"},
+                                        {"name": "Alexandrian Liver", "description": "Liver slices with onions, peppers, and Alexandrian spices", "price": "35 AED"},
+                                        {"name": "1/4 Fried Chicken", "description": "Quarter golden and crispy fried chicken", "price": "15 AED"},
+                                        {"name": "French Fries", "description": "Golden crispy french fries", "price": "15 AED"}
+                                    ]
+                                },
+                                {
+                                    "title": "Stuffed Vegetables | المحاشي",
+                                    "items": [
+                                        {"name": "Mombar", "description": "Intestines stuffed with rice and spices, cooked until tender", "price": "40 AED"},
+                                        {"name": "Grape Leaves", "description": "Grape leaves stuffed with rice, vegetables, and herbs", "price": "30 AED"},
+                                        {"name": "Stuffed Cabbage", "description": "Cabbage leaves stuffed with rice, minced meat, and spices", "price": "30 AED"},
+                                        {"name": "Mixed Mahashi", "description": "Assortment of stuffed vegetables with rice and spices, served with aromatic tomato sauce", "price": "40 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "Nile Signature Dishes",
+                                    "items": [
+                                        {"name": "Macarona Bechamel", "description": "Pasta with béchamel sauce layered with minced meat and creamy béchamel sauce", "price": "35 AED"},
+                                        {"name": "Pasta with Oriental Sausage", "description": "Pasta mixed with spicy oriental sausage and aromatic tomato sauce", "price": "35 AED"},
+                                        {"name": "Roqaq with Minced Meat", "description": "Crispy roqaq stuffed with seasoned minced meat and baked", "price": "30 AED"},
+                                        {"name": "Chicken Escalope", "description": "Tender chicken slices breaded and fried until golden", "price": "40 AED"},
+                                        {"name": "Fattah with Beef Cubes", "description": "Rice and toasted bread fattah with beef cubes, yogurt, and garlic sauce", "price": "55 AED"},
+                                        {"name": "Lamb Shank Fattah", "description": "Rice and bread with slow-cooked lamb shank, topped with yogurt and garlic sauce", "price": "60 AED"},
+                                        {"name": "Fattah with Kawareh", "description": "Rice and bread fattah with delicious kawareh soup topped with yogurt and garlic sauce", "price": "55 AED"},
+                                        {"name": "Whole Stuffed Chicken with Rice", "description": "Whole chicken stuffed with seasoned rice and nuts, baked", "price": "50 AED"},
+                                        {"name": "Pigeon Stuffed with Rice", "description": "Pigeon stuffed with seasoned Egyptian rice and cooked until tender", "price": "60/110 AED"},
+                                        {"name": "Pigeon Stuffed with Freek", "description": "Pigeon stuffed with seasoned freek grains with herbs, cooked until tender", "price": "65/115 AED"},
+                                        {"name": "Half Duck with Mahashi", "description": "Half fried duck served with various mahashi dishes", "price": "110 AED"},
+                                        {"name": "Half Roasted Duck", "description": "Half duck roasted in the oven with oriental aromatic rice", "price": "100 AED"},
+                                        {"name": "Roasted Lamb Shoulder", "description": "Slow-cooked lamb shoulder in the oven with oriental herbs and spices", "price": "200 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "Grills Al-Nile | مشاوي النيل",
+                                    "headerNote": "Order | Half Kilo | Kilo",
+                                    "items": [
+                                        {"name": "Kebab", "description": "Grilled kebab meat seasoned with oriental herbs and spices", "price": "59/88/175 AED"},
+                                        {"name": "Kofta", "description": "Grilled minced meat kofta on charcoal with special spices", "price": "55/80/160 AED"},
+                                        {"name": "Grilled Lamb Ribs", "description": "Tender lamb ribs carefully grilled until golden", "price": "60/80/180 AED"},
+                                        {"name": "Tarab", "description": "Grilled minced meat mixture wrapped in fat, with a unique flavor", "price": "55/85/165 AED"},
+                                        {"name": "Shish Tawook", "description": "Seasoned chicken shish tawook grilled on charcoal", "price": "45/60/125 AED"},
+                                        {"name": "Grilled Liver", "description": "Grilled liver slices with oriental herbs and spices", "price": "40 AED"},
+                                        {"name": "Grilled Sausage", "description": "Egyptian sausage grilled on charcoal with a smoky flavor", "price": "45 AED"},
+                                        {"name": "Hawawshi", "description": "Bread stuffed with seasoned minced meat and grilled", "price": "22 AED"},
+                                        {"name": "Grilled Chicken Breasts", "description": "Grilled chicken breasts seasoned with herbs, served tender and healthy", "price": "40 AED"},
+                                        {"name": "Grilled Lamb Shank", "description": "Lamb shank grilled on charcoal with oriental seasoning", "price": "60 AED"},
+                                        {"name": "Half Grilled Chicken", "description": "Half chicken grilled on charcoal with oriental seasoning", "price": "35 AED"},
+                                        {"name": "Nile Gourmet Mixed Grills", "description": "Assortment of Egyptian grills: kebab, kofta, shish tawook, ribs, and sausage", "price": "90/175 AED"},
+                                        {"name": "Mixed Meat Grills", "description": "Variety of mixed meat grills including kebab, kofta, ribs, and tarab", "price": "90/180 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "Vegetables and Tagens | طواجن و خضار",
+                                    "items": [
+                                        {"name": "ملوخية سادة", "description": "حساء ملوخية مصري كلاسيكي يقدم ساخناً", "price": "38 AED"},
+                                        {"name": "ملوخية بالدجاج", "description": "ملوخية مطبوخة مع قطع دجاج طرية", "price": "49 AED"},
+                                        {"name": "ملوخية باللحم", "description": "ملوخية غنية مع مكعبات لحم مقلية ومذاق أصيل", "price": "54 AED"},
+                                        {"name": "طاجن مسقعة باللحم المفروم", "description": "طاجن مسقعة باللحم المفروم والبطاطس والباذنجان", "price": "40 AED"},
+                                        {"name": "طاجن مسقعة بالبشاميل", "description": "طاجن مسقعة بالبشاميل الكريمي مع باذنجان ولحم مفروم", "price": "45 AED"},
+                                        {"name": "طاجن بطاطس بالدجاج", "description": "طاجن بطاطس مع قطع دجاج متبلة ومخبوزة", "price": "45 AED"},
+                                        {"name": "طاجن بطاطس باللحم", "description": "طاجن بطاطس مع لحم بقري مطهو ببطء في صلصة طماطم", "price": "45 AED"},
+                                        {"name": "ورقة لحمة", "description": "شرائح لحم بقري مطهوة في الفرن مع الخضروات والتوابل", "price": "50 AED"},
+                                        {"name": "طاجن بامية باللحم", "description": "طاجن بامية باللحم، لحم بقري مطهو مع البامية في صلصة غنية", "price": "45 AED"},
+                                        {"name": "طاجن لحم بالبصل", "description": "لحم مطهو ببطء مع بصل متكرمل وتوابل", "price": "45 AED"},
+                                        {"name": "عكاوي بالبصل", "description": "عكاوي مطهوة بالبصل حتى تصبح طرية وغنية بالنكهات", "price": "46 AED"},
+                                        {"name": "ورق عنب بالكوارع", "description": "ورق عنب محشو يقدم مع شوربة كوارع لذيذة", "price": "50 AED"},
+                                        {"name": "طاجن موزة بالبطاطس", "description": "موزة ضاني مطهوة مع البطاطس في طاجن عطري بالبهارات", "price": "65 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "الفطير المصري | The Egyptian Feteer",
+                                    "items": [
+                                        {"name": "فطيرة مشلتت سادة", "description": "فطير مصري تقليدي هش وغني بالطبقات يقدم مع العسل أو الجبن", "price": "69 AED"},
+                                        {"name": "فطيرة مكس جبن", "description": "فطير محشو بمزيج من الجبن المختلفة الذائبة بنكهة شرقية", "price": "49 AED"},
+                                        {"name": "فطيرة مكس لحوم", "description": "فطير محشو بتشكيلة لحوم شهية متبلة ومطهوة", "price": "59 AED"},
+                                        {"name": "فطيرة خضار مشكلة", "description": "فطير محشو بخضروات طازجة متبلة ومخبوزة", "price": "49 AED"},
+                                        {"name": "فطيرة حلو النيل", "description": "فطير حلو معد على طريقة النيل مع عسل وسكر بودرة وقرفة", "price": "55 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "أرز معمر | Muammar Rice",
+                                    "items": [
+                                        {"name": "أرز معمر سادة", "description": "أرز مصري مطبوخ في الفرن مع حليب وسمن", "price": "30 AED"},
+                                        {"name": "أرز معمر باللحم", "description": "أرز بالفرن مع قطع لحم بقري وتوابل شرقية", "price": "45 AED"},
+                                        {"name": "رز معمر بالحمام", "description": "أرز معمر محشو بالحمام طبق مصري فاخر بنكهة غنية", "price": "55 AED"}
+                                    ]
+                                },
+                                {
+                                    "title": "أطباق جانبية | Side Dish",
+                                    "items": [
+                                        {"name": "أرز بالشعيرية", "description": "أرز مصري مطبوخ مع شعيرية ذهبية، طبق جانبي كلاسيكي", "price": "15 AED"},
+                                        {"name": "أرز ابيض", "description": "أرز أبيض مفلفل، خفيف ومثالي مع جميع الأطباق", "price": "15 AED"},
+                                        {"name": "رز بالخلطة", "description": "أرز مصري مطبوخ مع المكسرات والزبيب والتوابل الشرقية", "price": "18 AED"}
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "categories": [
+                                {
+                                    "title": "الولائم والصواني | Feasts & Trays",
+                                    "items": [
+                                        {"name": "وليمة فخدة ضاني", "description": "فخدة ضاني مع الأرز والمقبلات والسلطات (يطلب قبلها بيوم)", "price": "350 AED"},
+                                        {"name": "وليمة مشاوي الملوك", "description": "تشكيلة كباب، كفتة، شيش، ريش، وسجق مع المقبلات", "price": "500 AED"},
+                                        {"name": "صينية محاشي مع بطة", "description": "صينية محاشي مشكلة مع بطة محمرة وأرز شرقي", "price": "280 AED"},
+                                        {"name": "صينية فتة مع 6 موزات", "description": "صينية فتة مع 6 موزات ضاني مطهوة ببطء مع المقبلات", "price": "360 AED"},
+                                        {"name": "وليمة مكس حمام", "description": "حمام محشو بالأرز والفريك مع أطباق جانبية وسلطات", "price": "500 AED"},
+                                        {"name": "وليمة خروف مع محاشي", "description": "خروف كامل مع محاشي ومقبلات وسلطات (يطلب قبلها بيوم)", "price": "1400 AED"},
+                                        {"name": "وليمة خروف مع أرز بالخلطة", "description": "خروف كامل مع الأرز بالخلطة والمكسرات (يطلب قبلها بيوم)", "price": "1300 AED"},
+                                        {"name": "بطة كاملة مع محاشي", "description": "بطة كاملة محشية مع أصناف محاشي مشكلة وأرز شرقي", "price": "260 AED"},
+                                        {"name": "ديك رومي في الفرن", "description": "ديك رومي كامل مشوي مع أرز ومقبلات (للحفلات)", "price": "360 AED"},
+                                        {"name": "صينية رقاق", "description": "صينية رقاق باللحم المفروم، مخبوزة حتى تصبح ذهبية", "price": "120 AED"},
+                                        {"name": "صينية باشميل", "description": "صينية مكرونة بالباشاميل واللحم المفروم تكفي عدة أشخاص", "price": "150 AED"},
+                                        {"name": "صينية أرز معمر باللحمة", "description": "صينية أرز معمر باللحم البقري مطبوخة في الفرن", "price": "160 AED"}
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            };
+
+            const totalPages = allMenuData.ar.pages.length; // Number of pages is consistent across languages
+
+            /**
+             * Renders the menu content based on the current language.
+             */
+            function renderMenu() {
+                const langData = allMenuData[currentLanguage];
+                const headerInfo = langData.header;
+                const navText = langData.nav;
+                const modalText = langData.modals;
+
+                // Update header info
+                const headerHtmlContent = `
+                    <h1 class="text-2xl font-bold">${headerInfo.title}</h1>
+                    <p>${headerInfo.slogan}</p>
+                    <div class="contact-info-container">
+                        <a href="https://wa.me/${headerInfo.whatsappNumber}" target="_blank" class="contact-icon-btn" title="${currentLanguage === 'ar' ? 'واتساب' : 'WhatsApp'}">
+                            <i class="fab fa-whatsapp"></i>
+                        </a>
+                        <a href="tel:${headerInfo.phoneNumber}" class="contact-icon-btn" title="${currentLanguage === 'ar' ? 'اتصال' : 'Call'}">
+                            <i class="fas fa-phone"></i>
+                        </a>
+                        <a href="mailto:${headerInfo.email}" class="contact-icon-btn" title="${currentLanguage === 'ar' ? 'بريد إلكتروني' : 'Email'}">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                        <a href="${headerInfo.websiteLink}" target="_blank" class="contact-icon-btn" title="${currentLanguage === 'ar' ? 'الموقع' : 'Website'}">
+                            <i class="fas fa-globe"></i>
+                        </a>
+                        <a href="${headerInfo.instagramLink}" target="_blank" class="contact-icon-btn" title="${currentLanguage === 'ar' ? 'انستجرام' : 'Instagram'}">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="${headerInfo.facebookLink}" target="_blank" class="contact-icon-btn" title="${currentLanguage === 'ar' ? 'فيسبوك' : 'Facebook'}">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                    </div>
+                `;
+                
+                // Clear existing pages
+                book.innerHTML = '';
+
+                // Dynamically create pages
+                langData.pages.forEach((pageData, pageIndex) => {
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = `page ${pageIndex === currentPageIndex ? 'active' : ''}`;
+                    pageDiv.setAttribute('data-page-index', pageIndex); // Add data attribute for easier lookup
+
+                    const pageFrontDiv = document.createElement('div');
+                    pageFrontDiv.className = 'page-front';
+
+                    const pageContentDiv = document.createElement('div');
+                    pageContentDiv.className = 'page-content';
+
+                    // Add header info only to the first page
+                    if (pageIndex === 0) {
+                        const headerInfoDiv = document.createElement('div');
+                        headerInfoDiv.className = 'header-info';
+                        // Removed background-image style
+                        headerInfoDiv.innerHTML = headerHtmlContent; // Insert the content directly
+
+                        pageContentDiv.appendChild(headerInfoDiv);
+                    }
+
+                    pageData.categories.forEach(category => {
+                        const categoryDiv = document.createElement('div');
+                        const categoryTitle = document.createElement('h2');
+                        categoryTitle.className = 'category-title';
+                        categoryTitle.textContent = category.title;
+                        categoryDiv.appendChild(categoryTitle);
+
+                        // Handle Grill pricing header (Order | Half Kilo | Kilo)
+                        if (category.title.includes("مشاوي النيل") || category.title.includes("Grills Al-Nile")) {
+                            const grillHeaderNote = document.createElement('div');
+                            grillHeaderNote.className = 'grill-price-header';
+                            grillHeaderNote.textContent = category.headerNote;
+                            categoryDiv.appendChild(grillHeaderNote);
+                        }
+
+                        category.items.forEach(item => {
+                            const menuItemDiv = document.createElement('div');
+                            menuItemDiv.className = 'menu-item';
+
+                            const nameDescDiv = document.createElement('div');
+                            const itemName = document.createElement('p');
+                            itemName.className = 'item-name';
+                            itemName.textContent = item.name;
+                            nameDescDiv.appendChild(itemName);
+
+                            // Add "Show Description" button
+                            const showDescBtn = document.createElement('button');
+                            showDescBtn.className = 'show-desc-btn';
+                            showDescBtn.textContent = currentLanguage === 'ar' ? 'إظهار الوصف' : 'Show Description';
+                            showDescBtn.setAttribute('data-item-name', item.name);
+                            showDescBtn.setAttribute('data-item-category', category.title);
+                            showDescBtn.addEventListener('click', () => showItemDescription(item.name, category.title));
+                            nameDescDiv.appendChild(showDescBtn);
+
+                            // Handle different price formats for grills
+                            const itemPricesContainer = document.createElement('div');
+                            itemPricesContainer.className = 'item-prices-container';
+
+                            if (category.title.includes("مشاوي النيل") || category.title.includes("Grills Al-Nile")) {
+                                const prices = item.price.split('/');
+                                const labels = currentLanguage === 'ar' ? ["طلب:", "نص كيلو:", "كيلو:"] : ["Order:", "Half Kilo:", "Kilo:"];
+
+                                // Special handling for mixed grills that only have 2 prices (half kilo / kilo)
+                                if ((item.name.includes("مشاوي مشكلة") || item.name.includes("Mixed Grills")) && prices.length === 2) {
+                                    const priceLineHalfKilo = document.createElement('div');
+                                    priceLineHalfKilo.className = 'item-price-line';
+                                    const priceLabelHalfKilo = document.createElement('span');
+                                    priceLabelHalfKilo.className = 'price-label';
+                                    priceLabelHalfKilo.textContent = labels[1]; // "نص كيلو:" or "Half Kilo:"
+                                    const actualPriceHalfKilo = document.createElement('span');
+                                    actualPriceHalfKilo.className = 'item-price';
+                                    actualPriceHalfKilo.textContent = prices[0].trim();
+                                    priceLineHalfKilo.appendChild(priceLabelHalfKilo);
+                                    priceLineHalfKilo.appendChild(actualPriceHalfKilo);
+                                    itemPricesContainer.appendChild(priceLineHalfKilo);
+
+                                    const priceLineKilo = document.createElement('div');
+                                    priceLineKilo.className = 'item-price-line';
+                                    const priceLabelKilo = document.createElement('span');
+                                    priceLabelKilo.className = 'price-label';
+                                    priceLabelKilo.textContent = labels[2]; // "كيلو:" or "Kilo:"
+                                    const actualPriceKilo = document.createElement('span');
+                                    actualPriceKilo.className = 'item-price';
+                                    actualPriceKilo.textContent = prices[1].trim();
+                                    priceLineKilo.appendChild(priceLabelKilo);
+                                    priceLineKilo.appendChild(actualPriceKilo);
+                                    itemPricesContainer.appendChild(priceLineKilo);
+
+                                } else if (prices.length === 3) { // Order / Half Kilo / Kilo
+                                    prices.forEach((price, i) => {
+                                        const priceLine = document.createElement('div');
+                                        priceLine.className = 'item-price-line';
+                                        const priceLabel = document.createElement('span');
+                                        priceLabel.className = 'price-label';
+                                        priceLabel.textContent = labels[i];
+                                        const actualPrice = document.createElement('span');
+                                        actualPrice.className = 'item-price';
+                                        actualPrice.textContent = price.trim();
+                                        priceLine.appendChild(priceLabel);
+                                        priceLine.appendChild(actualPrice);
+                                        itemPricesContainer.appendChild(priceLine);
+                                    });
+                                } else { // Single price
+                                    const priceLine = document.createElement('div');
+                                    priceLine.className = 'item-price-line';
+                                    const actualPrice = document.createElement('span');
+                                    actualPrice.className = 'item-price';
+                                    actualPrice.textContent = item.price;
+                                    priceLine.appendChild(actualPrice);
+                                    itemPricesContainer.appendChild(priceLine);
+                                }
+                            } else { // For non-grill items, display as before
+                                const itemPrice = document.createElement('p');
+                                itemPrice.className = 'item-price';
+                                itemPrice.textContent = item.price;
+                                itemPricesContainer.appendChild(itemPrice);
+                            }
+
+                            menuItemDiv.appendChild(nameDescDiv);
+                            menuItemDiv.appendChild(itemPricesContainer); // Append the container
+                            categoryDiv.appendChild(menuItemDiv);
+                        });
+                        pageContentDiv.appendChild(categoryDiv);
+                    });
+
+                    pageFrontDiv.appendChild(pageContentDiv);
+                    pageDiv.appendChild(pageFrontDiv);
+                    book.appendChild(pageDiv);
+                });
+
+                // Update navigation buttons text
+                prevBtn.textContent = navText.prev;
+                nextBtn.textContent = navText.next;
+                recommendBtn.textContent = navText.recommend;
+                askChefBtn.textContent = navText.askChef;
+                feedbackBtn.textContent = navText.feedback;
+                viewFeedbackBtn.textContent = navText.viewFeedback; // Update view feedback button text
+                langArBtn.textContent = navText.langAr;
+                langEnBtn.textContent = navText.langEn;
+
+                // Update modal texts with null checks
+                if (modalTitle) modalTitle.textContent = modalText.recommendation.title;
+                if (modalLoading) modalLoading.textContent = modalText.recommendation.loading;
+                if (askChefModalTitle) askChefModalTitle.textContent = modalText.askChef.title;
+                if (chefQuestionInput) chefQuestionInput.placeholder = modalText.askChef.placeholder;
+                if (submitChefQuestionBtn) submitChefQuestionBtn.textContent = modalText.askChef.button;
+                if (chefLoading) chefLoading.textContent = modalText.askChef.loading;
+                if (feedbackModalTitle) feedbackModalTitle.textContent = modalText.feedback.title;
+                if (customerNameInput) customerNameInput.placeholder = modalText.feedback.namePlaceholder;
+                if (feedbackCommentInput) feedbackCommentInput.placeholder = modalText.feedback.commentPlaceholder;
+                if (submitFeedbackBtn) submitFeedbackBtn.textContent = modalText.feedback.button;
+                if (feedbackLoading) feedbackLoading.textContent = modalText.feedback.loading;
+                if (viewFeedbackModalTitle) viewFeedbackModalTitle.textContent = modalText.viewFeedback.title;
+                if (viewFeedbackLoading) viewFeedbackLoading.textContent = modalText.viewFeedback.loading;
+
+
+                // Update language buttons active state
+                langArBtn.classList.toggle('active-lang', currentLanguage === 'ar');
+                langEnBtn.classList.toggle('active-lang', currentLanguage === 'en');
+
+                // Update HTML dir attribute
+                document.documentElement.setAttribute('dir', currentLanguage === 'ar' ? 'rtl' : 'ltr');
+
+                updatePageDisplay(); // Re-apply active/flipped classes and button states
+            }
+
+            /**
+             * Updates the display of pages, showing the current page and hiding others.
+             * Also manages the `flipped` class for the previous page and updates navigation button states.
+             */
+            function updatePageDisplay() {
+                const pages = Array.from(book.querySelectorAll('.page')); // Get pages dynamically
+                pages.forEach((page, index) => {
+                    if (index === currentPageIndex) {
+                        page.classList.add('active');
+                        page.classList.remove('flipped'); // Ensure active page is not flipped
+                        page.style.zIndex = 10;
+                        page.style.transform = 'rotateY(0deg)';
+                    } else if (index < currentPageIndex) {
+                        page.classList.add('flipped');
+                        page.classList.remove('active');
+                        page.style.zIndex = 9 - index;
+                        page.style.transform = 'rotateY(-180deg)';
+                    } else {
+                        page.classList.remove('active', 'flipped');
+                        page.style.zIndex = 8 - index;
+                        page.style.transform = 'rotateY(0deg)';
+                    }
+                });
+
+                prevBtn.disabled = currentPageIndex === 0;
+                nextBtn.disabled = currentPageIndex === totalPages - 1;
+            }
+
+            /**
+             * Extracts all menu items from the current language's data.
+             * This data is then used to prompt the LLM for a recommendation or chef consultation.
+             * @returns {Array<Object>} An array of menu items with name, description, and category.
+             */
+            function extractMenuDataForLLM() {
+                const menuData = [];
+                const langData = allMenuData[currentLanguage];
+                langData.pages.forEach(pageData => {
+                    pageData.categories.forEach(category => {
+                        category.items.forEach(item => {
+                            menuData.push({
+                                category: category.title,
+                                name: item.name,
+                                description: item.description,
+                                price: item.price
+                            });
+                        });
+                    });
+                });
+                return menuData;
+            }
+
+            /**
+             * Displays the recommendation modal with the given title, dish name, and description.
+             * Shows loading text if no dish name is provided yet.
+             * @param {string} title - The title for the modal.
+             * @param {string} [dishName=''] - The name of the recommended dish.
+             * @param {string} [description=''] - The description of the recommended dish.
+             * @param {boolean} isLoading - Whether to show the loading indicator.
+             */
+            function showRecommendationModal(title, dishName = '', description = '', isLoading = false) {
+                if (modalTitle) modalTitle.textContent = title;
+                if (modalDishName) modalDishName.textContent = dishName;
+                if (modalDescription) modalDescription.textContent = description;
+
+                if (isLoading) {
+                    if (modalLoading) modalLoading.classList.remove('hidden');
+                    if (modalDishName) modalDishName.classList.add('hidden');
+                    if (modalDescription) modalDescription.classList.add('hidden');
+                } else {
+                    if (modalLoading) modalLoading.classList.add('hidden');
+                    if (modalDishName) modalDishName.classList.remove('hidden');
+                    if (modalDescription) modalDescription.classList.remove('hidden');
+                }
+                if (recommendationModal) recommendationModal.classList.remove('hidden');
+            }
+
+            /**
+             * Hides the recommendation modal.
+             */
+            function hideRecommendationModal() {
+                if (recommendationModal) recommendationModal.classList.add('hidden');
+            }
+
+            /**
+             * Displays the "Ask the Chef" modal.
+             */
+            function showAskChefModal() {
+                if (chefQuestionInput) chefQuestionInput.value = ''; // Clear previous input
+                if (chefResponse) chefResponse.innerHTML = ''; // Clear previous response
+                if (chefLoading) chefLoading.classList.add('hidden'); // Hide loading
+                if (submitChefQuestionBtn) submitChefQuestionBtn.disabled = false; // Enable button
+                if (askChefModal) askChefModal.classList.remove('hidden');
+            }
+
+            /**
+             * Hides the "Ask the Chef" modal.
+             */
+            function hideAskChefModal() {
+                if (askChefModal) askChefModal.classList.add('hidden');
+            }
+
+            /**
+             * Shows the description modal and fetches description from LLM.
+             * @param {string} itemName - The name of the item.
+             * @param {string} itemCategory - The category of the item.
+             */
+            async function showItemDescription(itemName, itemCategory) {
+                if (descriptionModalTitle) descriptionModalTitle.textContent = itemName;
+                if (descriptionModalText) descriptionModalText.textContent = '';
+                if (descriptionLoading) descriptionLoading.classList.remove('hidden');
+                if (descriptionModal) descriptionModal.classList.remove('hidden');
+
+                const prompt = `Generate a concise and appealing description for "${itemName}" from the "${itemCategory}" category on an Egyptian restaurant menu. Provide only the description text, no extra information, and keep it brief (max 30 words). The description should be in ${currentLanguage === 'ar' ? 'Arabic' : 'English'}.`;
+
+                try {
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; // Canvas will provide this at runtime
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        if (descriptionModalText) descriptionModalText.textContent = result.candidates[0].content.parts[0].text;
+                    } else {
+                        if (descriptionModalText) descriptionModalText.textContent = allMenuData[currentLanguage].modals.description.error;
+                        console.error('LLM response structure unexpected:', result);
+                    }
+                } catch (error) {
+                    console.error('Error fetching LLM description:', error);
+                    if (descriptionModalText) descriptionModalText.textContent = allMenuData[currentLanguage].modals.description.error;
+                } finally {
+                    if (descriptionLoading) descriptionLoading.classList.add('hidden');
+                }
+            }
+
+            /**
+             * Hides the description modal.
+             */
+            function hideDescriptionModal() {
+                if (descriptionModal) descriptionModal.classList.add('hidden');
+            }
+
+            /**
+             * Shows the feedback submission modal.
+             */
+            function showFeedbackModal() {
+                if (feedbackModalTitle) feedbackModalTitle.textContent = allMenuData[currentLanguage].modals.feedback.title;
+                if (customerNameInput) customerNameInput.value = '';
+                if (feedbackCommentInput) feedbackCommentInput.value = '';
+                ratingStars.forEach(radio => radio.checked = false); // Clear selected stars
+                if (feedbackMessage) feedbackMessage.textContent = '';
+                if (feedbackLoading) feedbackLoading.classList.add('hidden');
+                if (submitFeedbackBtn) submitFeedbackBtn.disabled = false;
+                if (feedbackModal) feedbackModal.classList.remove('hidden');
+            }
+
+            /**
+             * Hides the feedback submission modal.
+             */
+            function hideFeedbackModal() {
+                if (feedbackModal) feedbackModal.classList.add('hidden');
+            }
+
+            /**
+             * Shows the view feedback modal and loads feedback from Firestore.
+             */
+            async function showViewFeedbackModal() {
+                if (viewFeedbackModalTitle) viewFeedbackModalTitle.textContent = allMenuData[currentLanguage].modals.viewFeedback.title;
+                if (feedbackList) feedbackList.innerHTML = ''; // Clear previous feedback
+                if (viewFeedbackLoading) viewFeedbackLoading.classList.remove('hidden');
+                if (viewFeedbackModal) viewFeedbackModal.classList.remove('hidden');
+
+                try {
+                    // Ensure Firebase is initialized before proceeding
+                    if (!window.db || !window.appId) {
+                        console.error("Firebase or appId is not initialized. Retrying in 1 second...");
+                        setTimeout(showViewFeedbackModal, 1000); // Retry after 1 second
+                        return;
+                    }
+                    const feedbackCollectionRef = collection(window.db, "artifacts", window.appId, "public", "feedback");
+                    const querySnapshot = await getDocs(feedbackCollectionRef);
+
+                    if (querySnapshot.empty) {
+                        if (feedbackList) feedbackList.textContent = allMenuData[currentLanguage].modals.viewFeedback.noFeedback;
+                    } else {
+                        querySnapshot.forEach((doc) => {
+                            const feedback = doc.data();
+                            const feedbackItem = document.createElement('div');
+                            feedbackItem.className = 'feedback-item';
+                            const name = feedback.customerName || (currentLanguage === 'ar' ? 'مجهول' : 'Anonymous');
+                            const ratingStarsHtml = '★'.repeat(feedback.rating) + '☆'.repeat(5 - feedback.rating);
+                            const timestamp = feedback.timestamp ? new Date(feedback.timestamp.toDate()).toLocaleString(currentLanguage === 'ar' ? 'ar-EG' : 'en-US') : '';
+
+                            feedbackItem.innerHTML = `
+                                <p><strong>${name}</strong> <span class="rating">(${ratingStarsHtml})</span></p>
+                                <p class="comment">${feedback.comment}</p>
+                                <p class="timestamp">${timestamp}</p>
+                            `;
+                            if (feedbackList) feedbackList.appendChild(feedbackItem);
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error fetching feedback:", error);
+                    if (feedbackList) feedbackList.textContent = allMenuData[currentLanguage].modals.viewFeedback.error;
+                } finally {
+                    if (viewFeedbackLoading) viewFeedbackLoading.classList.add('hidden');
+                }
+            }
+
+            /**
+             * Hides the view feedback modal.
+             */
+            function hideViewFeedbackModal() {
+                if (viewFeedbackModal) viewFeedbackModal.classList.add('hidden');
+            }
+
+
+            // Event listener for previous page button
+            prevBtn.addEventListener('click', () => {
+                if (currentPageIndex > 0) {
+                    currentPageIndex--;
+                    updatePageDisplay();
+                }
+            });
+
+            // Event listener for next page button
+            nextBtn.addEventListener('click', () => {
+                if (currentPageIndex < totalPages - 1) {
+                    currentPageIndex++;
+                    updatePageDisplay();
+                }
+            });
+
+            // Event listener for the LLM recommendation button
+            recommendBtn.addEventListener('click', async () => {
+                showRecommendationModal(allMenuData[currentLanguage].modals.recommendation.title, '', '', true); // Show modal with loading state
+
+                const menuData = extractMenuDataForLLM();
+                // Filter out items that don't have a description or are just headers
+                const recommendableItems = menuData.filter(item => item.description && item.description.length > 0 && !item.name.includes("مشاوي مشكلة") && !item.name.includes("Mixed Grills"));
+
+                if (recommendableItems.length === 0) {
+                    showRecommendationModal(allMenuData[currentLanguage].modals.recommendation.error, '', allMenuData[currentLanguage].modals.recommendation.error, false);
+                    return;
+                }
+
+                // Select a random item
+                const randomIndex = Math.floor(Math.random() * recommendableItems.length);
+                const randomDish = recommendableItems[randomIndex];
+
+                // Construct the prompt for the LLM to get a fresh description
+                const prompt = `Generate a concise and appealing description for "${randomDish.name}" from the "${randomDish.category}" category on an Egyptian restaurant menu. Provide only the description text, no extra information, and keep it brief (max 30 words). The description should be in ${currentLanguage === 'ar' ? 'Arabic' : 'English'}.`;
+
+                try {
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; // Canvas will provide this at runtime
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const generatedDescription = result.candidates[0].content.parts[0].text;
+                        showRecommendationModal(allMenuData[currentLanguage].modals.recommendation.title, randomDish.name, generatedDescription, false);
+                    } else {
+                        showRecommendationModal(allMenuData[currentLanguage].modals.recommendation.error, randomDish.name, allMenuData[currentLanguage].modals.recommendation.error, false);
+                        console.error('LLM response structure unexpected:', result);
+                    }
+                } catch (error) {
+                    console.error('Error fetching LLM recommendation:', error);
+                    showRecommendationModal(allMenuData[currentLanguage].modals.recommendation.error, randomDish.name, allMenuData[currentLanguage].modals.recommendation.error, false);
+                }
+            });
+
+            // Event listener for the new "Ask the Chef" button
+            askChefBtn.addEventListener('click', () => {
+                showAskChefModal();
+            });
+
+            // Event listener for submitting a question to the Chef
+            submitChefQuestionBtn.addEventListener('click', async () => {
+                const userQuestion = chefQuestionInput.value.trim();
+
+                if (!userQuestion) {
+                    if (chefResponse) chefResponse.innerHTML = `<p class="modal-text">${currentLanguage === 'ar' ? 'الرجاء كتابة سؤالك للشيف.' : 'Please type your question for the chef.'}</p>`;
+                    return;
+                }
+
+                if (chefLoading) chefLoading.classList.remove('hidden');
+                if (chefResponse) chefResponse.innerHTML = ''; // Clear previous response
+                if (submitChefQuestionBtn) submitChefQuestionBtn.disabled = true; // Disable button during loading
+
+                const menuData = extractMenuDataForLLM();
+                const menuJson = JSON.stringify(menuData);
+
+                const prompt = `أنت شيف مصري خبير يعمل في مطعم "النيل غورميه". لقد طرح عليك أحد العملاء السؤال التالي حول قائمتنا: "${userQuestion}". قائمتنا الكاملة متوفرة أدناه: ${menuJson}. يرجى الإجابة على سؤال العميل بطريقة مفيدة وودية وغنية بالمعلومات، مع الإشارة إلى الأطباق من قائمتنا عند الاقتضاء. أجب باللغة ${currentLanguage === 'ar' ? 'العربية' : 'الإنجليزية'}.`;
+
+                try {
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; // Canvas will provide this at runtime
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        if (chefResponse) chefResponse.innerHTML = `<p class="modal-text">${result.candidates[0].content.parts[0].text}</p>`;
+                    } else {
+                        if (chefResponse) chefResponse.innerHTML = `<p class="modal-text">${allMenuData[currentLanguage].modals.askChef.error}</p>`;
+                        console.error('LLM response structure unexpected:', result);
+                    }
+                } catch (error) {
+                    console.error('Error fetching LLM chef consultation:', error);
+                    if (chefResponse) chefResponse.innerHTML = `<p class="modal-text">${allMenuData[currentLanguage].modals.askChef.error}</p>`;
+                } finally {
+                    if (chefLoading) chefLoading.classList.add('hidden');
+                    if (submitChefQuestionBtn) submitChefQuestionBtn.disabled = false; // Re-enable button
+                }
+            });
+
+            // Event listener for feedback button
+            feedbackBtn.addEventListener('click', showFeedbackModal);
+
+            // Event listener for submitting feedback
+            submitFeedbackBtn.addEventListener('click', async () => {
+                const customerName = customerNameInput.value.trim();
+                const rating = document.querySelector('input[name="rating"]:checked')?.value;
+                const comment = feedbackCommentInput.value.trim();
+
+                if (!rating) {
+                    if (feedbackMessage) feedbackMessage.textContent = currentLanguage === 'ar' ? 'الرجاء اختيار تقييم بالنجوم.' : 'Please select a star rating.';
+                    return;
+                }
+
+                if (feedbackLoading) feedbackLoading.classList.remove('hidden');
+                if (feedbackMessage) feedbackMessage.textContent = '';
+                if (submitFeedbackBtn) submitFeedbackBtn.disabled = true;
+
+                try {
+                    // Ensure Firebase is initialized before proceeding
+                    if (!window.db || !window.appId) {
+                        console.error("Firebase or appId is not initialized. Cannot submit feedback.");
+                        if (feedbackMessage) feedbackMessage.textContent = allMenuData[currentLanguage].modals.feedback.error;
+                        if (feedbackLoading) feedbackLoading.classList.add('hidden');
+                        if (submitFeedbackBtn) submitChefQuestionBtn.disabled = false;
+                        return;
+                    }
+
+                    await addDoc(collection(window.db, "artifacts", window.appId, "public", "feedback"), {
+                        customerName: customerName,
+                        rating: parseInt(rating),
+                        comment: comment,
+                        timestamp: serverTimestamp()
+                    });
+                    if (feedbackMessage) feedbackMessage.textContent = allMenuData[currentLanguage].modals.feedback.success;
+                    if (customerNameInput) customerNameInput.value = '';
+                    if (feedbackCommentInput) feedbackCommentInput.value = '';
+                    ratingStars.forEach(radio => radio.checked = false);
+                } catch (error) {
+                    console.error("Error submitting feedback:", error);
+                    if (feedbackMessage) feedbackMessage.textContent = allMenuData[currentLanguage].modals.feedback.error;
+                } finally {
+                    if (feedbackLoading) feedbackLoading.classList.add('hidden');
+                    if (submitFeedbackBtn) submitFeedbackBtn.disabled = false;
+                }
+            });
+
+            // Event listener for viewing feedback
+            viewFeedbackBtn.addEventListener('click', showViewFeedbackModal);
+
+
+            // Language switching event listeners
+            langArBtn.addEventListener('click', () => {
+                currentLanguage = 'ar';
+                renderMenu();
+            });
+
+            langEnBtn.addEventListener('click', () => {
+                currentLanguage = 'en';
+                renderMenu();
+            });
+
+            // Event listener to close recommendation modal when close button is clicked
+            closeRecommendationModal.addEventListener('click', hideRecommendationModal);
+
+            // Event listener to close "Ask the Chef" modal when close button is clicked
+            closeAskChefModal.addEventListener('click', hideAskChefModal);
+
+            // Event listener to close description modal
+            closeDescriptionModal.addEventListener('click', hideDescriptionModal);
+
+            // Event listener to close feedback modal
+            closeFeedbackModal.addEventListener('click', hideFeedbackModal);
+
+            // Event listener to close view feedback modal
+            closeViewFeedbackModal.addEventListener('click', hideViewFeedbackModal);
+
+
+            // Event listener to close any modal when clicking outside the modal content
+            window.addEventListener('click', (event) => {
+                if (event.target === recommendationModal) {
+                    hideRecommendationModal();
+                }
+                if (event.target === askChefModal) {
+                    hideAskChefModal();
+                }
+                if (event.target === descriptionModal) {
+                    hideDescriptionModal();
+                }
+                if (event.target === feedbackModal) {
+                    hideFeedbackModal();
+                }
+                if (event.target === viewFeedbackModal) {
+                    hideViewFeedbackModal();
+                }
+            });
+
+            // Initial rendering of the menu
+            renderMenu();
+        });
+    </script>
+</body>
+</html>
